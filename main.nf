@@ -41,8 +41,6 @@ workflow {
             "${ciftify}/MNINonLinear/" +
             "Results/ses-01_task-rest_desc-preproc/" +
             "ses-01_task-rest_desc-preproc_Atlas_s0.dtseries.nii",
-
-            // Refers to variables provided in command-line or any config file
             params.sgacc_template
         ]}
         seed_corr(seed_corr_input)
