@@ -4,9 +4,9 @@ nextflow.preview.dsl=2
 // include X from "./PATH/TO/MODULE.nf" params(params)
 
 
-
-
 process seed_corr {
+
+    label 'connectome'
     
     input:
     tuple val(subject), path(dtseries), path(sgacc)
@@ -41,11 +41,16 @@ workflow {
             "${ciftify}/MNINonLinear/" +
             "Results/ses-01_task-rest_desc-preproc/" +
             "ses-01_task-rest_desc-preproc_Atlas_s0.dtseries.nii",
+
+            // Refers to variables provided in command-line or any config file
             params.sgacc_template
         ]}
         seed_corr(seed_corr_input)
 
+        // View output
         seed_corr.out.correlation | view
 
-
+    emit:
+        // A process which emits the single target coordinate should be here
+        coordinate = <PROCESS_NAME>.out.coordinate
 }
