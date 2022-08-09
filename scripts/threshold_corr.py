@@ -40,7 +40,7 @@ def main():
 
     args = parser.parse_args()
     f_dscalar = args.dscalar
-    percentle = args.percentile
+    percentile = args.percentile
     output = args.output_file
 
     logging.info("Thresholding dscalar...")
