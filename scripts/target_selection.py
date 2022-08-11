@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 import argparse
 import logging
 from collections import namedtuple
@@ -14,7 +15,9 @@ logging.basicConfig(format="%(asctime)s [SGACC TARGETING]:  %(message)s",
                     level=logging.INFO)
 
 def target_selection(dscalar, left_surface, right_surface, sulcal_depth, output_file):
+    coordinates_file = [0, 0, 0]
     # Iteratively,
+
 
         # Select the largest cluster
 
@@ -23,7 +26,7 @@ def target_selection(dscalar, left_surface, right_surface, sulcal_depth, output_
         # Calculate the centre-of-mass
 
         # If the cluster is removed during sulcal depth thresholding, find the next biggest cluster and loop
-
+    
     return coordinates_file
 
 def main():
@@ -56,10 +59,11 @@ def main():
     f_left_surface = args.left_surface
     f_right_surface = args.right_surface
     sulcal_depth = args.sulcal_depth
-    output = args.output_file
+    output_file = args.output_file
 
     logging.info("Selecting target...")
-    thresholded = threshold_dscalar(f_dscalar, f_left_surface, f_right_surface, sulcal_depth, output_file)
+    target_coord = target_selection(f_dscalar, f_left_surface, f_right_surface, sulcal_depth, output_file)
+    np.savetxt(output_file, target_coord)
 
 if __name__ == '__main__':
     main()

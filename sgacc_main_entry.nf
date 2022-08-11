@@ -92,6 +92,8 @@ sgacc_input = input_channel.map { sub -> [
 
 sgacc_input | view
 
+println params.ciftify_img
+
 workflow {
     sgacc_targeting(sgacc_input)
 }

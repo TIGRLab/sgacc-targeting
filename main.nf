@@ -34,7 +34,7 @@ process seed_corr {
         correlation (channel): (subject, corr_map: Path) sgacc correlation map
     */
 
-    label 'bin'
+    label 'ciftify'
     
     input:
     tuple val(subject), path(dtseries), path(sgacc)
@@ -63,17 +63,18 @@ process threshold_corr{
         thresholded (channel): (subject, threshold_dscalar: Path) Thresholded dscalar file
     */
 
+    label 'fieldopt'
     label 'bin'
 
     input:
     tuple val(subject), path(dscalar), val(threshold)
 
     output:
-    tuple val(subject), path("${subject}_desc-corr_threshold.dscalar.nii"), emit: thresholded
+    tuple val(subject), path("${subject}_desc-threshold.dscalar.nii"), emit: thresholded
 
     shell:
     '''
-    /scripts/threshold_corr.py !{dscalar} !{threshold} !{subject}_desc-corr_threshold.dscalar.nii
+    python /scripts/threshold_corr.py !{dscalar} !{threshold} !{subject}_desc-threshold.dscalar.nii
     '''
 }
 
@@ -98,7 +99,10 @@ process find_clusters {
     label 'connectome'
     
     input:
-    tuple val(subject), path(dscalar), val(surface_value_threshold), val(surface_minimum_area), val(volume_value_threshold), val(volume_minimum_size)
+    tuple val(subject), path(dscalar),\
+    val(surface_value_threshold), val(surface_minimum_area), val(volume_value_threshold), val(volume_minimum_size),\
+    path(left_surface), path(right_surface)
+
 
     output:
     tuple val(subject), path("${subject}_desc-clusters.dscalar.nii"), emit: clusters
@@ -111,7 +115,10 @@ process find_clusters {
         !{surface_minimum_area} \
         !{volume_value_threshold} \
         !{volume_minimum_size} \
-        --outputname ${subject}_desc-clusters.dscalar.nii
+        COLUMN \
+        !{subject}_desc-clusters.dscalar.nii \
+        -left-surface !{left_surface} \
+        -right-surface !{right_surface}
     '''
 }
 
@@ -131,6 +138,7 @@ process target_selection{
         coordinates (channel): (subject, coordinates: Path) Coordinates of centre of mass target
     */
 
+    label 'fieldopt'
     label 'bin'
 
     input:
@@ -141,7 +149,7 @@ process target_selection{
 
     shell:
     '''
-    /scripts/target_selection.py \
+    python /scripts/target_selection.py \
         !{dscalar} \
         !{left_surface} \
         !{right_surface} \
@@ -164,13 +172,14 @@ workflow sgacc_targeting {
     main:
         // 1. seed_corr
         // derivatives | view
-        seed_corr_input = derivatives.map { sub, fmriprep, ciftify -> [
-            sub,
-            "${ciftify}/MNINonLinear/" +
-            "Results/ses-01_task-rest_run-1_desc-preproc/" +
-            "ses-01_task-rest_run-1_desc-preproc_Atlas_s0.dtseries.nii",
-            params.sgacc_template
-        ]}
+        seed_corr_input = derivatives.map { sub, fmriprep, ciftify -> 
+                            [
+                                sub,
+                                "${ciftify}/MNINonLinear/" +
+                                "Results/ses-01_task-rest_run-1_desc-preproc/" +
+                                "ses-01_task-rest_run-1_desc-preproc_Atlas_s0.dtseries.nii",
+                                params.sgacc_template
+                            ]}
         seed_corr_input | view
         seed_corr(seed_corr_input)
 
@@ -182,35 +191,42 @@ workflow sgacc_targeting {
         threshold_corr(threshold_corr_input)
 
         // 3. mask_corr
-        mask_corr_input = threshold_corr.out.correlation.map {sub, dscalar -> [sub, dscalar, params.dlpfc_mask]}
+        mask_corr_input = threshold_corr.out.thresholded.map {sub, dscalar -> [sub, dscalar, params.dlpfc_mask]}
         mask_corr(mask_corr_input)
 
         // 4. clustering
-        cluster_input = mask_corr.out.masked.map { sub, dscalar -> [
-            sub,
-            dscalar,
-            "${params.surface_value_threshold}",
-            "${params.surface_minimum_area}",
-            "${params.volume_value_threshold}",
-            "${params.volume_minimum_size}"
-        ]}
+        cluster_input = mask_corr.out.masked
+                                .join(derivatives, by:0)
+                                .map { sub, dscalar, fmriprep, ciftify -> 
+                                [
+                                    sub,
+                                    dscalar,
+                                    "${params.surface_value_threshold}",
+                                    "${params.surface_minimum_area}",
+                                    "${params.volume_value_threshold}",
+                                    "${params.volume_minimum_size}",
+                                    "${ciftify}/T1w/fsaverage_LR32k/" +
+                                    "${sub}.L.midthickness.32k_fs_LR.surf.gii",
+                                    "${ciftify}/T1w/fsaverage_LR32k/" +
+                                    "${sub}.R.midthickness.32k_fs_LR.surf.gii"
+                                ]}
         find_clusters(cluster_input)
 
         // 5. Target Selection
         target_selection_input = seed_corr.out.correlation.map {sub, dscalar -> [sub, dscalar, params.threshold]}
+        target_selection_input = find_clusters.out.clusters
+                                        .join(derivatives, by:0)
+                                        .map { sub, dscalar, fmriprep, ciftify -> 
+                                        [
+                                            sub,
+                                            dscalar,
+                                            "${ciftify}/T1w/fsaverage_LR32k/" +
+                                            "${sub}.L.midthickness.32k_fs_LR.surf.gii",
+                                            "${ciftify}/T1w/fsaverage_LR32k/" +
+                                            "${sub}.R.midthickness.32k_fs_LR.surf.gii",
+                                            "${params.sulcal_depth}"
+                                        ]}
         target_selection(target_selection_input)
-
-        target_selection.out.coordinates | show
-
-        // // corr map, Ciftify MSM sphere 
-        // seed_corr_mask_input = seed_corr.out.correlation.map {sub, dscalar -> [sub, dscalar, params.dlpfc_mask]}
-
-        // mask_corr(seed_corr_mask_input)
-        // weight_func_input = seed_corr.out.correlation.map {sub, dscalar -> [sub, dscalar, params.dlpfc_mask]}
-
-        // resampleweightfunc_wf(mask_corr.out.mask_corr, registration_wf.out.msm_sphere)
-        // mapped_inputs = mock_input.spread(['L', 'R']).view().map { subject, ab, h -> [ subject, "${ciftify}/${subject}/MNINonLinear/fsaverage_LR32k/${subject}.${h}.sphere.32k_fs_LR.surf.gii" ]}.view()
-
 
     emit:
         // A process which emits the single target coordinate should be here
