@@ -33,7 +33,7 @@ def threshold_dscalar(dscalar, percentile):
     threshold_data[threshold_data > threshold_val] = 0
 
     # Convert the thresholded data back into an image
-    new_img = Cifti2Image(threshold_data, header=cifti_img.header,
+    new_img = Cifti2Image(np.abs(threshold_data), header=cifti_img.header,
                          nifti_header=cifti_img.nifti_header)
 
     # new_img.to_filename(thresholded_dscalar)
@@ -62,7 +62,7 @@ def main():
     percentile = args.percentile
     output = args.output_file
 
-    logging.info("Thresholding dscalar...")
+    logging.info(f"Thresholding dscalar with percentile {percentile}...")
     thresholded = threshold_dscalar(f_dscalar, percentile)
     thresholded.to_filename(output)
 
