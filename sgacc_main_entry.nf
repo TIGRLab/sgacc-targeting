@@ -84,16 +84,35 @@ if (!params.rewrite){
                         .map{i,n -> i}
 }
 
+
+process publish_coordinates{
+
+    publishDir path: "${params.out}/coordinates/${sub}", \
+               mode: 'move', \
+               overwrite: true
+
+    input:
+    tuple val(sub),\
+    path(coordinates)
+
+    output:
+    tuple val(sub), path(coordinates)
+
+    shell:
+    '''
+    #!/bin/bash
+    echo "Transferring !{coordinates} to boonstim/!{sub} folder..."
+    '''
+}
+
 sgacc_input = input_channel.map { sub -> [
             sub,
             "${params.fmriprep}/${sub}",
             "${params.ciftify}/${sub}",
         ]}
 
-sgacc_input | view
-
-println params.ciftify_img
-
 workflow {
     sgacc_targeting(sgacc_input)
+
+    publish_coordinates(sgacc_targeting.out.coordinate)
 }

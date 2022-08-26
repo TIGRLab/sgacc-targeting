@@ -4,65 +4,108 @@ import argparse
 import logging
 from collections import namedtuple
 
+import sys
+
 import numpy as np
 import nibabel as nib
 
 from nilearn import image as img
-import meshplot as mp
+import pandas as pd
+
+from nibabel.cifti2.cifti2 import Cifti2Image
 
 logging.basicConfig(format="%(asctime)s [SGACC TARGETING]:  %(message)s",
                     datefmt="%Y-%m-%d %I:%M:%S %p",
                     level=logging.INFO)
+def load_fdata(dscalar_path):
+    return nib.load(dscalar_path).get_fdata()
 
-def target_selection(dscalar, left_surface, right_surface, sulcal_depth, output_file):
-    coordinates_file = [0, 0, 0]
-    # Iteratively,
+# def target_selection(dscalar, left_surface, right_surface, sulcal_depth, output_file):
+def target_selection(clusters, sulcal, corr_map, left_surface, percentile):
+    coordinates = [0, 0, 0]
+    # Need to load masked cluster, masked sulcal, cropped corr map, left gifti
+    clusters_data = load_fdata(clusters)
+    sulcal_data = load_fdata(sulcal)
+    corr_map_data = load_fdata(corr_map)
 
-
-        # Select the largest cluster
-
-        # Threshold using sulcal depth
-
-        # Calculate the centre-of-mass
-
-        # If the cluster is removed during sulcal depth thresholding, find the next biggest cluster and loop
+    # Sort the nonzero clusters from largest to smallest
+    unique, counts = np.unique(clusters_data, return_counts=True)
+    sort_ind = np.argsort(counts)
+    sort_ind_rev = sort_ind[::-1]
+    cluster_counts = counts[sort_ind_rev]
+    cluster_vals = unique[sort_ind_rev]
     
-    return coordinates_file
+    # Loop over the clusters
+    for curr_cluster in cluster_vals:
+        # If the current cluster is 0, skip
+        if curr_cluster == 0:
+            continue
+        # Binarize the cluster
+        cluster_bin = np.where(clusters_data == curr_cluster, 1.0, 0)
+
+        # Threshold the sulcal map
+        # sulcal_threshold_val = np.percentile(sulcal_data[sulcal_data > 0], percentile)
+        sulcal_thresholded = np.where(sulcal_data > 0, 1, 0)
+
+        # Mask the sulcal with the binarized cluster
+        sulcal_cluster = sulcal_thresholded*cluster_bin
+
+        # Multiply the masked sulcal with the corr map
+        corr_mask_cluster = corr_map_data*sulcal_cluster
+
+        # Normalize the corr map and get left surface
+        norm_corr_mask = corr_mask_cluster/corr_mask_cluster.sum()
+        left_corr = norm_corr_mask[0:,:32492]
+
+        # Load in the left hemisphere gifti, and calculate the inner product with corr map
+        left_gifti = nib.load(left_surface)
+        v = left_gifti.agg_data('pointset')
+        coordinates = left_corr @ v
+
+        # Return the first average coordinate
+        return(coordinates)
+
+    return coordinates
 
 def main():
     parser = argparse.ArgumentParser(description="Calculates a centre-of-mass "
                                      "from the largest cluster in the "
                                      "input dscalar file.")
     
-    parser.add_argument('dscalar',
+    parser.add_argument('clusters',
                         type=str,
                         help='Path of input clusters dscalar file')
 
+    parser.add_argument('sulcal',
+                        type=str,
+                        help='Path to sulcal height dscalar file')
+
+    parser.add_argument('corr_map',
+                        type=str,
+                        help='Path to correlation map dscalar file')
+
     parser.add_argument('left_surface',
                         type=str,
-                        help='Path to left surface')
+                        help='Path to left surface gifti file')
 
-    parser.add_argument('right_surface',
-                        type=str,
-                        help='Path to right surface')
-
-    parser.add_argument('sulcal_depth',
+    parser.add_argument('percentile',
                         type=float,
-                        help='Depth of sulcal to threshold by')
+                        help='Float of percentage to threshold dscalar by')
 
     parser.add_argument('output_file',
                         type=str,
                         help='Path of file to output coordinates to')
 
     args = parser.parse_args()
-    f_dscalar = args.dscalar
+    f_clusters = args.clusters
+    f_sulcal = args.sulcal
+    f_corr_map = args.corr_map
     f_left_surface = args.left_surface
-    f_right_surface = args.right_surface
-    sulcal_depth = args.sulcal_depth
+    percentile = args.percentile
     output_file = args.output_file
 
     logging.info("Selecting target...")
-    target_coord = target_selection(f_dscalar, f_left_surface, f_right_surface, sulcal_depth, output_file)
+    target_coord = target_selection(f_clusters, f_sulcal, f_corr_map, f_left_surface, percentile)
     np.savetxt(output_file, target_coord)
 
 if __name__ == '__main__':
