@@ -11,14 +11,14 @@ parser = getArgumentParser(
  a .json file that can be used (use -params-file arg)"
 )
 
-parser.addRequired("--fmriprep",
+parser.addRequired("--fmriprep_output",
     "Path to fmriprep output directory",
-    params.fmriprep.toString(),
+    params.fmriprep_output.toString(),
     "FMRIPREP_DIRECTORY")
 
-parser.addRequired("--ciftify",
+parser.addRequired("--ciftify_output",
     "Path to ciftify output directory",
-    params.ciftify.toString(),
+    params.ciftify_output.toString(),
     "CIFTIFY_DIRECTORY")
 
 parser.addRequired("--out",
@@ -56,15 +56,15 @@ if (missingArgs || missingConfig) {
 
 include {sgacc_targeting} from "./main.nf" params(params)
 
-log.info("Fmriprep Directory: $params.fmriprep")
-log.info("Ciftify Directory: $params.ciftify")
+log.info("Fmriprep Directory: $params.fmriprep_output")
+log.info("Ciftify Directory: $params.ciftify_output")
 log.info("Output Directory: $params.out")
 if (params.subjects) {
     log.info ("Subject list file provided: $params.subjects")
 }
 
 
-input_channel = Channel.fromPath("$params.fmriprep/sub-*", type: 'dir')
+input_channel = Channel.fromPath("$params.fmriprep_output/sub-*", type: 'dir')
                     .map{i -> i.getBaseName()}
 
 if (params.subjects){
@@ -107,8 +107,8 @@ process publish_coordinates{
 
 sgacc_input = input_channel.map { sub -> [
             sub,
-            "${params.fmriprep}/${sub}",
-            "${params.ciftify}/${sub}",
+            "${params.fmriprep_output}/${sub}",
+            "${params.ciftify_output}/${sub}",
         ]}
 
 workflow {

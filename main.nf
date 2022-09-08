@@ -11,18 +11,6 @@ include {remove_subcortical as crop_clusters} from './modules/utils.nf' params(p
 
 req_param = ["--bids": "$params.bids",
              "--out": "$params.out"]
-req_config_param = [
-                    "fmriprep": "$params.fmriprep",
-                    "ciftify": "$params.ciftify",
-                    "connectome": "$params.connectome",
-                    "license": "$params.license",
-                    "fmriprep_invocation": "$params.fmriprep_invocation",
-                    "fmriprep_anat_invocation": "$params.fmriprep_anat_invocation",
-                    "fmriprep_descriptor": "$params.fmriprep_descriptor",
-                    "ciftify_invocation": "$params.ciftify_invocation",
-                    "ciftify_descriptor": "$params.ciftify_descriptor",
-                    "weightworkflow" : "$params.weightworkflow"
-                   ]
 
 process seed_corr {
 
@@ -201,8 +189,8 @@ workflow sgacc_targeting {
     /*
     *   Derivatives tuple (subject: value, fmriprep: path, ciftify: path)
     *       subject: Subject string
-    *       fmriprep: Path to subject fMRIPrep folder
-    *       ciftify: Path to subject ciftify folder
+    *       fmriprep_output: Path to subject fMRIPrep folder
+    *       ciftify_output: Path to subject ciftify folder
     */
 
     take:
