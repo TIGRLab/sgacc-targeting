@@ -185,6 +185,43 @@ process target_selection{
     '''
 }
 
+
+
+process visualize_target{
+
+    /*
+    Generate a QC visualization of the selected coordinate on the left hemisphere.
+
+    Arguments:
+        subject (str): Subject ID
+        left_gii (Path): Path of left hemisphere gifti
+        dscalar (Path): Path to correlation map
+        coordinate (Path): Path to text file of coordinates
+        qc_img (Path): Path to QC image to output
+
+    Outputs:
+        coordinates (channel): (subject, coordinates: Path) Coordinates of centre of mass target
+    */
+
+    label 'fieldopt'
+
+    input:
+    tuple val(subject), path(left_gii), path(dscalar),\
+    path(coordinate)
+
+    output:
+    tuple val(subject), path("${subject}_coordinates.png"), emit: qc_coordinate
+
+    shell:
+    '''
+    python /scripts/visualize_target.py \
+        !{left_gii} \
+        !{dscalar} \
+        !{coordinate} \
+        !{subject}_coordinates.png
+    '''
+}
+
 workflow sgacc_targeting {
     /*
     *   Derivatives tuple (subject: value, fmriprep: path, ciftify: path)
@@ -290,6 +327,14 @@ workflow sgacc_targeting {
                                     params.sulcal_depth
                                 ]}
         target_selection(target_selection_input)
+
+        // 9. Generate the QC targets
+        visualize_target_inputs = derivatives
+                            .map{sub,fmriprep,ciftify -> [sub, "${ciftify}/MNINonLinear/fsaverage_LR32k/${sub}.L.midthickness.32k_fs_LR.surf.gii"]}
+                            .join(crop_corr.out, by:0)
+                            .join(target_selection.out, by:0)
+        // visualize_target_inputs | view
+        visualize_target(visualize_target_inputs)
 
     // Output the target selection coordinate
     emit:
