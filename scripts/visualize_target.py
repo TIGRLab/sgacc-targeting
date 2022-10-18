@@ -44,9 +44,8 @@ def main():
 
     pv.start_xvfb()
 
-    p = pv.Plotter(polygon_smoothing=False, off_screen=True)
+    p = pv.Plotter(polygon_smoothing=True, off_screen=True)
     p.add_mesh(surf)
-    p.start_xvfb()
 
     sphere = pv.Sphere(center=coords, radius=3)
     p.add_mesh(sphere, color="red")
@@ -56,9 +55,8 @@ def main():
     p.camera.azimuth = 260
     p.camera.elevation = 10
     
-    p.window_size = [1000, 1000]
-    p.camera.zoom(0.50)
     p.screenshot(args.qc_img)
+    p.export_html(args.qc_img + ".html")
 
 
 if __name__ == '__main__':

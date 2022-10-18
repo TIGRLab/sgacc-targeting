@@ -172,6 +172,7 @@ process target_selection{
 
     output:
     tuple val(subject), path("${subject}_coordinates.txt"), emit: coordinates
+    tuple val(subject), path("${subject}_sulcal_qc.dscalar.nii"), emit: sulcal_qc
 
     shell:
     '''
@@ -181,7 +182,8 @@ process target_selection{
         !{corr_map} \
         !{left_surface} \
         !{sulcal_depth} \
-        !{subject}_coordinates.txt
+        !{subject}_coordinates.txt \
+        !{subject}_sulcal_qc.dscalar.nii
     '''
 }
 
@@ -210,7 +212,7 @@ process visualize_target{
     path(coordinate)
 
     output:
-    tuple val(subject), path("${subject}_coordinates.png"), emit: qc_coordinate
+    tuple val(subject), path("${subject}_coordinates.png"), path("${subject}_coordinates.html"), emit: qc_coordinate
 
     shell:
     '''
@@ -218,11 +220,11 @@ process visualize_target{
         !{left_gii} \
         !{dscalar} \
         !{coordinate} \
-        !{subject}_coordinates.png
+        !{subject}_coordinates
     '''
 }
 
-workflow sgacc_targeting {
+workflow weightfunc_wf {
     /*
     *   Derivatives tuple (subject: value, fmriprep: path, ciftify: path)
     *       subject: Subject string
@@ -234,25 +236,6 @@ workflow sgacc_targeting {
         derivatives
 
     main:
-        // 1. Seed from the sgacc
-        seed_corr_input = derivatives
-                            .map{s,f,c ->   [
-                                                s,
-                                                new FileNameByRegexFinder().getFileNames("${c}",
-                                                ".*MNINonLinear/Results/.*(REST|rest).*/.*dtseries.nii")
-                                            ]
-                                }
-                            .transpose()
-                            .map{s,run ->   [
-                                                s,
-                                                ( run =~ /run-[^_]*/ )[0],
-                                                run,
-                                                params.sgacc_template
-                                            ]
-                                }
-        seed_corr(seed_corr_input)
-
-
         // Seed from the dlpfc (back projection method)
         back_project_input = derivatives
                             .map{s,f,c ->   [
@@ -271,12 +254,9 @@ workflow sgacc_targeting {
                                 }
         seed_corr_back_project(back_project_input)
 
-        // 2. Average the correlation maps across runs
-        avg_corr_map_inputs = seed_corr.out.correlation.groupTuple( by: 0 , sort: {it}, size: 6 ).map {sub, run, dscalar -> [sub, dscalar]}
-        avg_corr_map(avg_corr_map_inputs)
-
         // Average the correlation maps across runs (back projection method)
-        avg_back_project_inputs = seed_corr_back_project.out.correlation.groupTuple( by: 0 , sort: {it}, size: 6 ).map {sub, run, dscalar -> [sub, dscalar]}
+        avg_back_project_inputs = seed_corr_back_project.out.correlation.groupTuple( by: 0 , sort: {it}).map {sub, run, dscalar -> [sub, dscalar]}
+        avg_back_project_inputs | view
         avg_back_project(avg_back_project_inputs)
 
         // 3. Threshold the correlation map
@@ -330,13 +310,13 @@ workflow sgacc_targeting {
 
         // 9. Generate the QC targets
         visualize_target_inputs = derivatives
-                            .map{sub,fmriprep,ciftify -> [sub, "${ciftify}/MNINonLinear/fsaverage_LR32k/${sub}.L.midthickness.32k_fs_LR.surf.gii"]}
+                            .map{sub,fmriprep,ciftify -> [sub, "${ciftify}/T1w/fsaverage_LR32k/${sub}.L.midthickness.32k_fs_LR.surf.gii"]}
                             .join(crop_corr.out, by:0)
-                            .join(target_selection.out, by:0)
-        // visualize_target_inputs | view
+                            .join(target_selection.out.coordinates, by:0)
         visualize_target(visualize_target_inputs)
 
     // Output the target selection coordinate
     emit:
         coordinate = target_selection.out.coordinates
+        target_qc = visualize_target.out.qc_coordinate
 }

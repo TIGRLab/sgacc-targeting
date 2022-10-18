@@ -54,7 +54,7 @@ if (missingArgs || missingConfig) {
     System.exit(1)
 }
 
-include {sgacc_targeting} from "./main.nf" params(params)
+include {weightfunc_wf} from "./main.nf" params(params)
 
 log.info("Fmriprep Directory: $params.fmriprep_output")
 log.info("Ciftify Directory: $params.ciftify_output")
@@ -105,6 +105,27 @@ process publish_coordinates{
     '''
 }
 
+
+process publish_qc{
+
+    publishDir path: "${params.out}/targeting_qc/${sub}", \
+               mode: 'move', \
+               overwrite: true
+
+    input:
+    tuple val(sub),\
+    path(target_qc_png), path(target_qc_html)
+
+    output:
+    tuple val(sub), path(target_qc_png), path(target_qc_html)
+
+    shell:
+    '''
+    #!/bin/bash
+    echo "Transferring !{target_qc_png} to boonstim/!{sub} folder..."
+    '''
+}
+
 sgacc_input = input_channel.map { sub -> [
             sub,
             "${params.fmriprep_output}/${sub}",
@@ -112,7 +133,8 @@ sgacc_input = input_channel.map { sub -> [
         ]}
 
 workflow {
-    sgacc_targeting(sgacc_input)
+    weightfunc_wf(sgacc_input)
 
-    publish_coordinates(sgacc_targeting.out.coordinate)
+    publish_coordinates(weightfunc_wf.out.coordinate)
+    publish_qc(weightfunc_wf.out.target_qc)
 }
