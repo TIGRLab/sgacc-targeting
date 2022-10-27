@@ -14,6 +14,11 @@ import nilearn.plotting as nplot
 import numpy as np
 from nibabel.gifti.gifti import GiftiImage
 
+CIFTI_LENGTH=32492
+
+logging.basicConfig(format="%(asctime)s [TARGET VISUALIZATION]:  %(message)s",
+                    datefmt="%Y-%m-%d %I:%M:%S %p",
+                    level=logging.INFO) 
 
 def main():
     parser = argparse.ArgumentParser(description="Generate a QC visualization"
@@ -32,7 +37,7 @@ def main():
 
     cifti_img = nib.load(args.dscalar)
     cifti_data = cifti_img.get_fdata()[0]
-    cifti_left = cifti_data[:32492]
+    cifti_left = cifti_data[:CIFTI_LENGTH]
 
     face = np.zeros((l_trigs.shape[0], l_trigs.shape[1] + 1), dtype=int)
     face[:, 0] = 3

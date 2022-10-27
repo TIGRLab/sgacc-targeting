@@ -87,7 +87,7 @@ if (!params.rewrite){
 
 process publish_coordinates{
 
-    publishDir path: "${params.out}/coordinates/${sub}", \
+    publishDir path: "${params.out}/sgacc_targeting/${sub}", \
                mode: 'move', \
                overwrite: true
 

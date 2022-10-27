@@ -19,6 +19,7 @@ process seed_corr {
 
     Arguments:
         subject (str): Subject ID
+        run (str): Scan Run ID
         dtseries (Path): Path to cifti space timeseries to seed
         sgacc (Path): Path to sgacc roi file
 
@@ -49,6 +50,7 @@ process seed_corr_back_project {
 
     Arguments:
         subject (str): Subject ID
+        run (str): Scan Run ID
         dtseries (Path): Path to cifti space timeseries to seed
         sgacc (Path): Path to sgacc roi file
 
@@ -114,6 +116,8 @@ process find_clusters {
         surface_minimum_area (val): Threshold for surface cluster area, in mm^2 (default: 20)
         volume_value_threshold (val): Threshold for volume data values (default: -2.85)
         volume_minimum_size (val): Threshold for volume cluster size, in mm^3 (default: 20)
+        left_surface (Path): Left gifti surface file for given dscalar
+        right_surface (Path): Right gifti surface file for given dscalar
 
     Outputs:
         clusters (channel): (subject, dscalar: Path) sgacc clusters map
@@ -199,7 +203,6 @@ process visualize_target{
         left_gii (Path): Path of left hemisphere gifti
         dscalar (Path): Path to correlation map
         coordinate (Path): Path to text file of coordinates
-        qc_img (Path): Path to QC image to output
 
     Outputs:
         coordinates (channel): (subject, coordinates: Path) Coordinates of centre of mass target

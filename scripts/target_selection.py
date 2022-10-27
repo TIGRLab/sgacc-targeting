@@ -14,6 +14,8 @@ import pandas as pd
 
 from nibabel.cifti2.cifti2 import Cifti2Image
 
+CIFTI_LENGTH=32492
+
 logging.basicConfig(format="%(asctime)s [SGACC TARGETING]:  %(message)s",
                     datefmt="%Y-%m-%d %I:%M:%S %p",
                     level=logging.INFO)
@@ -61,7 +63,7 @@ def target_selection(clusters, sulcal, corr_map, left_surface, percentile):
 
         # Normalize the corr map and get left surface
         norm_corr_mask = corr_mask_cluster/corr_mask_cluster.sum()
-        left_corr = norm_corr_mask[0:,:32492]
+        left_corr = norm_corr_mask[0:,CIFTI_LENGTH]
 
         # Load in the left hemisphere gifti, and calculate the inner product with corr map
         left_gifti = nib.load(left_surface)
@@ -74,7 +76,8 @@ def target_selection(clusters, sulcal, corr_map, left_surface, percentile):
         # Return the first average coordinate
         return(coordinates, sulcal_map_qc_img)
 
-    return(coordinates, sulcal_map_qc_img)
+    logging.error("Could not find a coordinate from generated clusters, check find_clusters output")
+    raise ValueError
 
 def main():
     parser = argparse.ArgumentParser(description="Calculates a centre-of-mass "
