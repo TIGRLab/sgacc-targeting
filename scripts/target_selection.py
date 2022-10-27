@@ -22,7 +22,6 @@ logging.basicConfig(format="%(asctime)s [SGACC TARGETING]:  %(message)s",
 def load_fdata(dscalar_path):
     return nib.load(dscalar_path).get_fdata()
 
-# def target_selection(dscalar, left_surface, right_surface, sulcal_depth, output_file):
 def target_selection(clusters, sulcal, corr_map, left_surface, percentile):
     coordinates = [0, 0, 0]
     # Need to load masked cluster, masked sulcal, cropped corr map, left gifti
