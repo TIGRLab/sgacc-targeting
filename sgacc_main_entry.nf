@@ -11,11 +11,6 @@ parser = getArgumentParser(
  a .json file that can be used (use -params-file arg)"
 )
 
-parser.addRequired("--fmriprep_output",
-    "Path to fmriprep output directory",
-    params.fmriprep_output.toString(),
-    "FMRIPREP_DIRECTORY")
-
 parser.addRequired("--ciftify_output",
     "Path to ciftify output directory",
     params.ciftify_output.toString(),
@@ -56,7 +51,6 @@ if (missingArgs || missingConfig) {
 
 include {weightfunc_wf} from "./main.nf" params(params)
 
-log.info("Fmriprep Directory: $params.fmriprep_output")
 log.info("Ciftify Directory: $params.ciftify_output")
 log.info("Output Directory: $params.out")
 if (params.subjects) {
@@ -64,7 +58,7 @@ if (params.subjects) {
 }
 
 
-input_channel = Channel.fromPath("$params.fmriprep_output/sub-*", type: 'dir')
+input_channel = Channel.fromPath("$params.ciftify_output/sub-*", type: 'dir')
                     .map{i -> i.getBaseName()}
 
 if (params.subjects){
@@ -128,13 +122,14 @@ process publish_qc{
 
 sgacc_input = input_channel.map { sub -> [
             sub,
-            "${params.fmriprep_output}/${sub}",
             "${params.ciftify_output}/${sub}",
         ]}
 
-workflow {
-    weightfunc_wf(sgacc_input)
+sgacc_input | view
 
+workflow {
+
+    weightfunc_wf(sgacc_input)
     publish_coordinates(weightfunc_wf.out.coordinate)
     publish_qc(weightfunc_wf.out.target_qc)
 }

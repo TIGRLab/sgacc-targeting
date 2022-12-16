@@ -33,7 +33,7 @@ def main():
     gifti = nib.load(args.left_gii)
     l_verts, l_trigs = gifti.agg_data(('pointset', 'triangle'))
 
-    coords = np.loadtxt(args.coordinate, delimiter=' ')
+    coords = np.loadtxt(args.coordinate, delimiter=',')
 
     cifti_img = nib.load(args.dscalar)
     cifti_data = cifti_img.get_fdata()[0]

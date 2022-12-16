@@ -1,0 +1,7 @@
+{
+  "ciftify": "<ciftify_container>",
+  "connectome": "<connectome_workbench_container>",
+  "fieldopt": "<python_env_container>",
+
+  "num_cpus": 8
+}

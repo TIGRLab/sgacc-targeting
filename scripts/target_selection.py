@@ -22,6 +22,7 @@ logging.basicConfig(format="%(asctime)s [SGACC TARGETING]:  %(message)s",
 def load_fdata(dscalar_path):
     return nib.load(dscalar_path).get_fdata()
 
+# def target_selection(dscalar, left_surface, right_surface, sulcal_depth, output_file):
 def target_selection(clusters, sulcal, corr_map, left_surface, percentile):
     coordinates = [0, 0, 0]
     # Need to load masked cluster, masked sulcal, cropped corr map, left gifti
@@ -62,7 +63,7 @@ def target_selection(clusters, sulcal, corr_map, left_surface, percentile):
 
         # Normalize the corr map and get left surface
         norm_corr_mask = corr_mask_cluster/corr_mask_cluster.sum()
-        left_corr = norm_corr_mask[0:,CIFTI_LENGTH]
+        left_corr = norm_corr_mask[0:,:CIFTI_LENGTH]
 
         # Load in the left hemisphere gifti, and calculate the inner product with corr map
         left_gifti = nib.load(left_surface)
@@ -123,7 +124,7 @@ def main():
     logging.info("Selecting target...")
     target_coord,sulcal_map_qc_data = target_selection(f_clusters, f_sulcal, f_corr_map, f_left_surface, percentile)
     sulcal_map_qc_data.to_filename(sulcal_map_qc_path)
-    np.savetxt(output_file, target_coord)
+    np.savetxt(output_file, target_coord, delimiter=',')
 
 if __name__ == '__main__':
     main()

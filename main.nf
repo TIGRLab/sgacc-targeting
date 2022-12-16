@@ -73,6 +73,35 @@ process seed_corr_back_project {
     """
 }
 
+process seed_corr_back_project_single {
+
+    /*
+    Generates a correlation map based on sgacc seed mask using back projection
+
+    Arguments:
+        subject (str): Subject ID
+        dtseries (Path): Path to cifti space timeseries to seed
+        sgacc (Path): Path to sgacc roi file
+
+    Outputs:
+        correlation (channel): (subject, corr_map: Path) sgacc correlation map
+    */
+
+    label 'ciftify'
+    
+    input:
+    tuple val(subject), path(dtseries), path(sgacc)
+
+    output:
+    tuple val(subject), path("${subject}_desc-corr.dscalar.nii"), emit: correlation
+
+    shell:
+    """
+    ciftify_seed_corr --weighted ${dtseries} ${sgacc} \
+        --outputname ${subject}_desc-corr.dscalar.nii
+    """
+}
+
 
 process threshold_corr{
 
@@ -229,9 +258,8 @@ process visualize_target{
 
 workflow weightfunc_wf {
     /*
-    *   Derivatives tuple (subject: value, fmriprep: path, ciftify: path)
+    *   Derivatives tuple (subject: value, ciftify: path)
     *       subject: Subject string
-    *       fmriprep_output: Path to subject fMRIPrep folder
     *       ciftify_output: Path to subject ciftify folder
     */
 
@@ -240,30 +268,26 @@ workflow weightfunc_wf {
 
     main:
         // Seed from the dlpfc (back projection method)
-        back_project_input = derivatives
-                            .map{s,f,c ->   [
-                                                s,
-                                                new FileNameByRegexFinder().getFileNames("${c}",
-                                                ".*MNINonLinear/Results/.*(REST|rest).*/.*dtseries.nii")
-                                            ]
-                                }
-                            .transpose()
-                            .map{s,run ->   [
-                                                s,
-                                                ( run =~ /run-[^_]*/ )[0],
-                                                run,
-                                                params.sgacc_back_template
-                                            ]
-                                }
-        seed_corr_back_project(back_project_input)
+        derivatives | view
+        back_project_input_single = derivatives
+                    .map{s,c ->   [
+                                        s,
+                                        new FileNameByRegexFinder().getFileNames("${c}",
+                                        ".*MNINonLinear/Results/.*(REST|rest).*/.*dtseries.nii")
+                                    ]
+                        }
+                        .transpose()
+                        .map{s ->   [
+                                            s,
+                                            params.sgacc_back_template
+                                        ]
+                            }
 
-        // Average the correlation maps across runs (back projection method)
-        avg_back_project_inputs = seed_corr_back_project.out.correlation.groupTuple( by: 0 , sort: {it}).map {sub, run, dscalar -> [sub, dscalar]}
-        avg_back_project_inputs | view
-        avg_back_project(avg_back_project_inputs)
+        seed_corr_back_project_single(back_project_input_single)
 
         // 3. Threshold the correlation map
-        threshold_corr_input = avg_back_project.out.merged_dscalar.map {sub, dscalar -> [sub, dscalar, params.threshold]}
+        threshold_corr_input = seed_corr_back_project_single.out.correlation.map {sub, dscalar -> [sub, dscalar, params.threshold]}
+        threshold_corr_input | view
         threshold_corr(threshold_corr_input)
 
         // 4. Crop the thresholded correlation map 
@@ -272,13 +296,13 @@ workflow weightfunc_wf {
 
         // 5. Mask the sulcal with the dlpfc
         mask_sulcal_input = derivatives
-                            .map{sub,fmriprep,ciftify -> [sub, "${ciftify}/MNINonLinear/fsaverage_LR32k/${sub}.sulc.32k_fs_LR.dscalar.nii", params.dlpfc_mask, "sulcal_masked"]}
+                            .map{sub,ciftify -> [sub, "${ciftify}/MNINonLinear/fsaverage_LR32k/${sub}.sulc.32k_fs_LR.dscalar.nii", params.dlpfc_mask, "sulcal_masked"]}
         mask_sulcal(mask_sulcal_input)
 
         // 6. Generate the clusters from the thresholded correlation map
         cluster_input = crop_corr.out.corr_dscalar
                                 .join(derivatives, by:0)
-                                .map { sub, dscalar, fmriprep, ciftify -> 
+                                .map { sub, dscalar, ciftify -> 
                                 [
                                     sub,
                                     dscalar,
@@ -302,7 +326,7 @@ workflow weightfunc_wf {
                                         .join(mask_sulcal.out.masked, by:0)
                                         .join(crop_corr.out.corr_dscalar, by:0)
                                 .join(derivatives, by:0)
-                                .map { sub, mask_corr, mask_sulcal, crop_corr, fmriprep, ciftify -> 
+                                .map { sub, mask_corr, mask_sulcal, crop_corr, ciftify -> 
                                 [
                                     sub, mask_corr, mask_sulcal, crop_corr,
                                     "${ciftify}/T1w/fsaverage_LR32k/" +
@@ -313,7 +337,7 @@ workflow weightfunc_wf {
 
         // 9. Generate the QC targets
         visualize_target_inputs = derivatives
-                            .map{sub,fmriprep,ciftify -> [sub, "${ciftify}/T1w/fsaverage_LR32k/${sub}.L.midthickness.32k_fs_LR.surf.gii"]}
+                            .map{sub,ciftify -> [sub, "${ciftify}/T1w/fsaverage_LR32k/${sub}.L.midthickness.32k_fs_LR.surf.gii"]}
                             .join(crop_corr.out, by:0)
                             .join(target_selection.out.coordinates, by:0)
         visualize_target(visualize_target_inputs)
